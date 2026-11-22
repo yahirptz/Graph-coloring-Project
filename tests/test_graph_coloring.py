@@ -20,7 +20,7 @@ SAMPLES = ROOT / "sample_inputs"
 
 
 def independent_optimum(matrix, k):
-    """Small-case exhaustive reference with NO DSATUR or symmetry breaking."""
+    """Enumerate all labeled color assignments for small reference cases."""
     n = len(matrix)
     best = None
     for colors in itertools.product(range(k), repeat=n):
@@ -116,8 +116,8 @@ class GraphColoringTests(unittest.TestCase):
                 self.assertEqual(find_almost_equal_coloring(matrix, k).sequence, sequence)
 
     def test_handout_twenty_vertex_diagram(self):
-        # Transcribed from the four-color diagram, numbered clockwise around
-        # the outside first and then across the inside.
+        # We numbered the handout diagram around the outside first, then
+        # across the inside.
         matrix = adjacency_matrix(20, [
             (1, 2), (1, 14), (1, 15), (1, 16), (2, 3), (2, 4),
             (3, 4), (3, 5), (3, 6), (4, 5), (4, 16), (4, 18),
@@ -222,7 +222,7 @@ class GraphColoringTests(unittest.TestCase):
         cases = 0
         for n in range(2, 8):
             for _ in range(12):
-                # Start with a random spanning tree, add random other edges.
+                # We start with a spanning tree to guarantee connectivity.
                 matrix = [[0] * n for _ in range(n)]
                 for v in range(1, n):
                     u = rng.randrange(v)

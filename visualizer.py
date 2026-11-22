@@ -1,8 +1,6 @@
-"""Launch a local, dependency-free browser editor for CS 421 graph coloring.
+"""Local browser editor for CS 421 graph coloring.
 
-Run: python3 visualizer.py
-The editor creates an adjacency matrix and uses graph_coloring.py for solutions.
-Only listens on your own computer (127.0.0.1).
+We bind to loopback and share the same solver with the command-line runner.
 """
 
 from __future__ import annotations
@@ -37,7 +35,6 @@ def solve_payload(payload: dict) -> dict:
         raise ValueError("The number of colors (k) must be a positive integer.")
     if not isinstance(matrix, list) or not 1 <= len(matrix) <= 80:
         raise ValueError("The graph must contain between 1 and 80 vertices.")
-    # The same exact algorithm and adjacency validation as the file program.
     result = find_almost_equal_coloring(matrix, k)
     if result is None:
         return {"possible": False, "text": format_result(None)}
@@ -52,7 +49,6 @@ def solve_payload(payload: dict) -> dict:
 
 class GraphHandler(BaseHTTPRequestHandler):
     def log_message(self, format_string, *args):
-        # Keep terminal output short, but still expose requests and errors.
         print(f"[visualizer] {self.address_string()} {format_string % args}")
 
     def respond(self, status: int, data: bytes, content_type: str) -> None:

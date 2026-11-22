@@ -1,6 +1,6 @@
 """Exact minimum-imbalance coloring for a simple, connected undirected graph.
 
-A color sequence is sorted in nonincreasing order, and the objective is
+We sort the color sequence in nonincreasing order and minimize
     sum(abs(counts[i] - counts[i + 1]) for i in range(k - 1)).
 For a sorted sequence, this equals max(counts) - min(counts).
 Every one of the k colors must be used at least once.
@@ -71,7 +71,7 @@ def validate_graph(matrix: list[list[int]]) -> None:
             if matrix[i][j] != matrix[j][i]:
                 raise ValueError("The adjacency matrix must be symmetric.")
 
-    # BFS also validates connectedness, which the assignment assumes.
+    # We use BFS because the assignment requires a connected graph.
     reached = {0}
     queue = [0]
     for vertex in queue:
@@ -86,9 +86,8 @@ def validate_graph(matrix: list[list[int]]) -> None:
 def find_almost_equal_coloring(matrix: list[list[int]], k: int) -> Optional[ColoringResult]:
     """Find a proper coloring using exactly k colors with minimum imbalance.
 
-    The algorithm uses DSATUR-style vertex selection and exhaustive
-    backtracking with color-symmetry breaking and safe branch-and-bound.
-    It is exact, but its worst-case time is exponential.
+    For the general case, we use DSATUR vertex selection and exact
+    backtracking with color symmetry breaking and branch-and-bound.
     """
     validate_graph(matrix)
     if type(k) is not int or k < 1:
@@ -113,9 +112,8 @@ def find_almost_equal_coloring(matrix: list[list[int]], k: int) -> Optional[Colo
     groups = [[] for _ in range(k)]
     for vertex, color in enumerate(assignment, start=1):
         groups[color].append(vertex)
-    # Match the definition n_1 >= n_2 >= ... >= n_k. Ties can be broken
-    # arbitrarily; use larger summed vertex degree, then lower vertex IDs.
-    # This also reproduces the handout's Blue/Red/Yellow order for its example.
+    # We break size ties by total degree, then by vertex IDs. This also
+    # reproduces the handout's Blue/Red/Yellow order.
     groups.sort(key=lambda group: (-len(group),
                                    -sum(degree[v - 1] for v in group), group))
     sequence = tuple(len(group) for group in groups)
@@ -208,8 +206,8 @@ def search_coloring(adjacency: list[list[int]], degree: list[int],
             counts[color] -= 1
             assigned[vertex] = -1
 
-    # Each suspended iterator owns one assignment and undoes it when resumed.
-    # Keeping the search stack explicitly avoids Python's recursion limit.
+    # We keep an explicit stack to avoid Python's recursion limit. Each
+    # suspended iterator undoes its own assignment when resumed.
     stack = [branches(0, 0)]
     while stack and best_range != bool(remainder):
         child = next(stack[-1], None)

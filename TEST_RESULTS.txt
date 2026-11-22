@@ -1,32 +1,53 @@
-CS 421 Project 2 — original graph solver + visualizer tests
+CS 421 Project 2 — Automated Test Results
+
+We ran the full suite with the following command.
+python3 -B -m unittest discover -s tests -v
+
+All 28 tests passed, including 252 seeded comparisons with our independent
+brute-force reference and nine visualizer adapter and HTTP tests.
 
 test_against_independent_brute_force_random_connected_graphs (test_graph_coloring.GraphColoringTests.test_against_independent_brute_force_random_connected_graphs) ... ok
 test_assignment_k2_is_impossible (test_graph_coloring.GraphColoringTests.test_assignment_k2_is_impossible) ... ok
 test_assignment_k3_matches_handout_sequence (test_graph_coloring.GraphColoringTests.test_assignment_k3_matches_handout_sequence) ... ok
+test_cli_handout_examples_and_default (test_graph_coloring.GraphColoringTests.test_cli_handout_examples_and_default) ... ok
+test_cli_rejects_malformed_matrix (test_graph_coloring.GraphColoringTests.test_cli_rejects_malformed_matrix) ... ok
 test_complete_graph (test_graph_coloring.GraphColoringTests.test_complete_graph) ... ok
+test_exact_search_recovers_from_greedy_dsatur_failure (test_graph_coloring.GraphColoringTests.test_exact_search_recovers_from_greedy_dsatur_failure) ... ok
+test_handout_eight_vertex_tree (test_graph_coloring.GraphColoringTests.test_handout_eight_vertex_tree) ... ok
+test_handout_twenty_vertex_diagram (test_graph_coloring.GraphColoringTests.test_handout_twenty_vertex_diagram) ... ok
 test_invalid_files (test_graph_coloring.GraphColoringTests.test_invalid_files) ... ok
 test_invalid_matrix_inputs (test_graph_coloring.GraphColoringTests.test_invalid_matrix_inputs) ... ok
 test_k1_on_graph_with_edge_has_no_solution (test_graph_coloring.GraphColoringTests.test_k1_on_graph_with_edge_has_no_solution) ... ok
 test_k_exceeds_n (test_graph_coloring.GraphColoringTests.test_k_exceeds_n) ... ok
+test_larger_graphs (test_graph_coloring.GraphColoringTests.test_larger_graphs) ... ok
 test_odd_cycle (test_graph_coloring.GraphColoringTests.test_odd_cycle) ... ok
 test_one_vertex (test_graph_coloring.GraphColoringTests.test_one_vertex) ... ok
 test_path_8_three_colors_is_3_3_2 (test_graph_coloring.GraphColoringTests.test_path_8_three_colors_is_3_3_2) ... ok
+test_search_can_exceed_python_recursion_depth (test_graph_coloring.GraphColoringTests.test_search_can_exceed_python_recursion_depth) ... ok
 test_star_requires_unbalanced_classes (test_graph_coloring.GraphColoringTests.test_star_requires_unbalanced_classes) ... ok
 test_handout_sample_same_as_command_line_solver (test_visualizer.VisualizerTests.test_handout_sample_same_as_command_line_solver) ... ok
 test_homepage_and_assets (test_visualizer.VisualizerTests.test_homepage_and_assets) ... ok
 test_impossible_case (test_visualizer.VisualizerTests.test_impossible_case) ... ok
+test_impossible_result_through_api (test_visualizer.VisualizerTests.test_impossible_result_through_api) ... ok
+test_malformed_matrix_through_api (test_visualizer.VisualizerTests.test_malformed_matrix_through_api) ... ok
 test_reject_invalid_graph (test_visualizer.VisualizerTests.test_reject_invalid_graph) ... ok
 test_reject_unknown_sample_and_malformed_post (test_visualizer.VisualizerTests.test_reject_unknown_sample_and_malformed_post) ... ok
 test_sample_endpoint (test_visualizer.VisualizerTests.test_sample_endpoint) ... ok
 test_solve_http_endpoint (test_visualizer.VisualizerTests.test_solve_http_endpoint) ... ok
 
 ----------------------------------------------------------------------
-Ran 19 tests in 0.959s
+Ran 28 tests in 0.908s
 
 OK
 [visualizer] 127.0.0.1 "GET / HTTP/1.1" 200 -
 [visualizer] 127.0.0.1 "GET /app.js HTTP/1.1" 200 -
 [visualizer] 127.0.0.1 "GET /style.css HTTP/1.1" 200 -
+[visualizer] 127.0.0.1 "GET /api/example?name=example_k2 HTTP/1.1" 200 -
+[visualizer] 127.0.0.1 "POST /api/solve HTTP/1.1" 200 -
+[visualizer] 127.0.0.1 "POST /api/solve HTTP/1.1" 400 -
+[visualizer] 127.0.0.1 "POST /api/solve HTTP/1.1" 400 -
+[visualizer] 127.0.0.1 "POST /api/solve HTTP/1.1" 400 -
+[visualizer] 127.0.0.1 "POST /api/solve HTTP/1.1" 400 -
 [visualizer] 127.0.0.1 "GET /api/example?name=../../private HTTP/1.1" 404 -
 [visualizer] 127.0.0.1 "POST /api/solve HTTP/1.1" 400 -
 [visualizer] 127.0.0.1 "GET /api/example?name=triangle_k3 HTTP/1.1" 200 -

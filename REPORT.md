@@ -1,155 +1,124 @@
 # CS 421 — Project 2: Almost Equal Graph Coloring
 
 **Assignment:** Project 2 (150 points), due November 22, 2026  
-**Implementation language:** Python 3 (standard library only)
+**Implementation:** Python 3.10+ and the standard library
 
 ## 1. Problem statement and objective
 
-The input is a positive integer `k` followed by the size `n` and an `n × n` zero-one adjacency matrix of a simple, undirected, connected graph. The program must find a proper vertex coloring that uses **exactly `k` nonempty color classes**, or print `no such a sequence exists.` if that is impossible. A coloring is proper when the endpoints of every edge have different colors.
+We read the number of colors `k`, the number of vertices `n`, and an `n × n` binary adjacency matrix from a text file. Our input represents a simple, connected, undirected graph. We look for a proper coloring using exactly `k` nonempty classes, so the endpoints of every edge must have different colors.
 
-If the sizes of its color classes, sorted in descending order, are `n_1 >= n_2 >= ... >= n_k > 0`, the project defines the imbalance as
+We sort the class sizes so that `n_1 ≥ n_2 ≥ … ≥ n_k > 0`. The handout defines imbalance as the sum of absolute differences between consecutive sizes. Since each difference is nonnegative, the sum telescopes to the expression below.
 
-`F = |n_1 - n_2| + |n_2 - n_3| + ... + |n_(k-1) - n_k|`.
+`F = |n_1 − n_2| + … + |n_(k−1) − n_k| = n_1 − n_k`.
 
-Because the sequence is nonincreasing, all differences are nonnegative and this sum telescopes:
-
-`F = (n_1 - n_2) + ... + (n_(k-1) - n_k) = n_1 - n_k`.
-
-Therefore the implementation **minimizes the difference between the largest and smallest color classes** among all proper colorings using exactly `k` colors. It does not assume equal group sizes are always possible: for example, a six-vertex star can only have color-class sizes `(5,1)` when `k = 2`.
-
-For a successful coloring, the program prints the sorted sequence and the one-based vertex IDs for each color class.
+We minimize that difference and print the sorted sizes and one-based vertex IDs for each group. If no proper coloring uses exactly `k` colors, we print `no such a sequence exists.`
 
 ## 2. Problem-solving techniques (10 points)
 
-The program uses **exact backtracking** with two optimizations:
+For the general case, we use exact backtracking and select vertices with DSATUR. We choose the uncolored vertex with the most distinct colors among its colored neighbors. We break ties by higher graph degree, then lower vertex ID. Each uncolored vertex has an integer mask of forbidden colors, so we can find its saturation by counting the set bits.
 
-1. **DSATUR-style vertex selection:** choose an uncolored vertex with the largest number of distinct colors already present among its neighbors (its saturation). Break ties by larger graph degree, then smaller vertex number. Choosing the most constrained vertex early typically finds contradictions sooner.
-2. **Branch-and-bound:** after each assignment, compute a lower bound on the best possible final imbalance. If it cannot improve the best complete solution found so far, stop exploring that branch. Also stop if there are too few uncolored vertices to use all `k` colors.
+We try the next unused color first, followed by legal existing colors in ascending order of class size and color index. Introducing unused colors in index order avoids equivalent label permutations. We also use branch-and-bound to skip partial assignments that cannot improve our best complete coloring.
 
-**Symmetry breaking:** names of colors do not affect graph-coloring validity or imbalance. The next new color is always introduced using its lowest unused internal index, instead of trying all indistinguishable unused colors. This avoids redundant copies of equivalent colorings while preserving every distinct partition into color classes.
-
-**Search order:** try legal existing colors with smaller current classes first, then one new color if available. This tends to find low-imbalance solutions sooner. The result is still exact because the search considers all legal alternatives, unless a mathematically safe pruning rule applies.
-
-The search also stops if it reaches the universal theoretical minimum: `0` when `n` is divisible by `k`, otherwise `1`. Such a coloring is necessarily optimal. This is a stopping condition, not an assumption that every graph admits such a coloring.
+We handle several cases directly. When `k > n`, there are too few vertices. When `k = n`, singleton classes give imbalance zero. A connected graph with more than one vertex cannot use one color. For two colors, we traverse the graph with breadth-first search (BFS). A conflict rules out a bipartition. Because the graph is connected, a successful bipartition is unique up to swapping its colors and therefore fixes the class sizes.
 
 ## 3. Data structures (10 points)
 
 | Data structure | Role |
 |---|---|
-| `list[list[int]]` adjacency matrix | Stores the `n × n` matrix required by the assignment; `matrix[i][j]` is 1 exactly when vertices `i` and `j` are adjacent. |
-| `list[list[int]]` adjacency list | Derived from the matrix to efficiently iterate over a vertex's neighbors during the search. |
-| `list[int]` `assigned` | Current color number for each vertex; `-1` means uncolored. |
-| `list[int]` `counts` | Number of vertices currently assigned to each color. |
-| `list[int]` `degree` | Number of neighbors of each vertex, for tie-breaking. |
-| `set[int]` | Tracks neighbor colors and checks graph connectivity during BFS. |
-| `ColoringResult` dataclass | Stores the final size sequence, grouped one-based vertex IDs, and optimal imbalance. |
-
-Internally, vertices are numbered `0` to `n-1`; the display converts them to the required `1` to `n`.
+| Adjacency matrix and lists | We read the required matrix and build lists for efficient neighbor traversal. |
+| `assigned` and `degree` | We store each vertex’s color, or −1 if uncolored, and its degree for tie-breaking. |
+| `forbidden` | We store one bit per forbidden color in each uncolored vertex’s mask. |
+| `counts` and `capacities` | We track current sizes and upper bounds on final class sizes. |
+| Explicit stack of iterators | We suspend each branch while exploring its child and undo its changes when it resumes. |
+| BFS queue and reached set | We use a list as a queue and a set to track connectivity. Two-color BFS tracks visits in its color array. |
+| `ColoringResult` | We return the sequence, one-based vertex groups, and optimal imbalance. |
 
 ## 4. Major functions (10 points)
 
 | Function | Purpose |
 |---|---|
-| `read_graph(path)` | Reads the required file format, checks its dimensions, and returns `(k, adjacency_matrix)`. |
-| `validate_graph(matrix)` | Rejects nonsquare, nonbinary, asymmetric, disconnected, or self-loop-containing matrices. |
-| `find_almost_equal_coloring(matrix, k)` | Exact DSATUR-ordered backtracking solver minimizing color-class imbalance. Returns a result or `None`. |
-| `select_vertex()` (nested) | Picks the next uncolored vertex by saturation, degree, and vertex number. |
-| `search(colored, used)` (nested) | Tries legal color choices recursively, applies pruning, and records the best solution. |
-| `format_result(result)` | Prints the color sequence plus color-to-vertices lists, or the required no-solution message. |
-| `main()` | Processes the input-file command-line argument, runs the solver, and prints output. |
+| `main()` in `main.py` | Reads the input path from the command line, runs our solver, and prints the result. |
+| `read_graph(path)` | Parses and validates the file and returns the color count and matrix. |
+| `validate_graph(matrix)` | Checks matrix shape, binary entries, symmetry, diagonal entries, and connectivity. |
+| `find_almost_equal_coloring(matrix, k)` | Validates the input, selects the solving method, and orders the returned groups. |
+| `two_color(adjacency)` | Finds a bipartition using BFS or returns `None` if a conflict occurs. |
+| `search_coloring(adjacency, degree, k)` | Runs the exact search using an explicit stack of branch iterators. |
+| `branches(colored, used)` | Nested in `search_coloring`. Applies bounds, selects the vertex, and yields child states while managing assignment and undo. |
+| `format_result(result)` | Returns the formatted sequence and vertex lists or the required impossibility message. |
+| `solve_payload(payload)` in `visualizer.py` | Validates the request and packages the shared solver’s result for the browser. |
 
 ## 5. Algorithm (pseudocode)
 
 ```text
-READ k, n, and the n-by-n adjacency matrix from a file
-VALIDATE that the matrix is a simple connected undirected graph
-IF k > n: PRINT "no such a sequence exists."
-ELSE:
-    Initialize assigned[v] = uncolored for every vertex v
-    Initialize counts[color] = 0 for every color
-    best_solution = none
-    best_imbalance = n + 1
+READ and validate k, n, and the adjacency matrix
+HANDLE k > n, k = n, k = 1, and k = 2 directly
+OTHERWISE push the initial branch iterator onto a stack
+WHILE the stack is nonempty and the theoretical minimum has not been reached:
+    Advance the top iterator
+    Pop it if exhausted, or push the child iterator it yields
+RETURN the best complete assignment found, if any
 
-    SEARCH(number_colored, number_of_colors_used):
-        IF best possible theoretical imbalance is already achieved: RETURN
-        IF there are not enough uncolored vertices to use all k colors: RETURN
-        IF all vertices are colored:
-            IF exactly k colors were used:
-                imbalance = largest class size - smallest class size
-                IF imbalance is better than best_imbalance:
-                    SAVE the assignment and imbalance
-            RETURN
-        IF lower bound of final imbalance >= best_imbalance: RETURN
+BRANCH ITERATOR:
+    Reject states with too few vertices left to open every missing class
+    If complete, save the assignment if it improves the best imbalance
+    Reject states whose class-size bounds rule out an improvement
+    Select the next vertex by saturation, degree, then vertex ID
+    Try the next unused color, then legal existing colors by class size
+        Apply the color and record newly set bits and the old capacity
+        Yield the child state
+        On resumption, undo the assignment, count, bits, and capacity
 
-        v = uncolored vertex with highest saturation (DSATUR)
-        FOR each legally usable existing color, smallest class first:
-            COLOR v with it; SEARCH recursively; UNCOLOR v
-        IF fewer than k colors have been used:
-            COLOR v with the next unused color; SEARCH recursively; UNCOLOR v
-
-    SEARCH(0, 0)
-    IF no solution found: PRINT "no such a sequence exists."
-    ELSE: SORT nonempty color groups by descending size and PRINT them
+SORT returned groups by descending size and format the output
 ```
 
 ## 6. Correctness argument
 
-**Properness:** A color is never assigned to a vertex if an already colored neighbor has that color. Each edge is checked when its second endpoint is colored, so every completed assignment is a proper coloring.
+**Properness and class count.** We reject a color if a previously colored neighbor has that color. When we color the second endpoint of an edge, the first endpoint’s color is already in its forbidden mask. Each branch checks that the remaining vertices can fill the missing classes, so a completed assignment uses exactly `k` colors. On undo, we clear only bits that the current assignment introduced, preserving restrictions from earlier assignments.
 
-**Exactly `k` colors:** An assignment is accepted only when the search has colored every vertex and introduced exactly `k` nonempty classes. If `k > n` or insufficient vertices remain to introduce missing classes, it correctly rejects that branch.
+**Completeness.** We can relabel any proper partition in the order its classes first appear along the search. DSATUR depends on the number of distinct neighbor colors, which stays the same under relabeling. Trying the next unused index and every legal existing class therefore covers each partition up to color labels. If every remaining vertex must open a class, we can skip existing classes.
 
-**Completeness:** Any proper coloring can be relabeled in the order its color classes are first encountered by the search. Consequently, introducing only the next unused color loses no distinct proper partition. At each recursive step, every permissible existing color and the single canonical new color is examined. Thus, without pruning, the search covers every proper coloring into exactly `k` nonempty classes, up to renaming colors.
+**Safe pruning.** Let `B` be the best complete imbalance and `r` the number of remaining vertices. After assigning a vertex of degree `d` to a class, we cap that class at `n − d`, since none of its neighbors can join it. Let `U` be the minimum of the smallest capacity, the smallest current count plus `r`, and `floor(n/k)`. Each term bounds the final smallest class from above. Improving `B` requires every final class to fit under `U + B − 1`. We prune if an existing class already exceeds that limit or if the sum of the class capacities clipped to that limit is less than `n`.
 
-**Safe pruning:** If the current largest count is `M`, the smallest count (including still-unused colors) is `m`, and `r` vertices remain uncolored, then the final largest class is at least `M`, and the final smallest class can be no larger than `m+r`. Hence every completion has imbalance at least `max(0, M - m - r)`. Discarding a branch when this lower bound is at least the best completed score cannot discard a strictly better solution. Also, any solution has imbalance at least `n % k != 0` (that is, 0 if divisible, or 1 otherwise), so stopping at that lower bound is safe.
+We also use `L = max(largest current count, ceil(n/k))` as a lower bound on the final largest class. To improve `B`, every class must reach at least `max(1, L − B + 1)`. We prune if the sum of the remaining deficits exceeds `r`.
 
-**Optimality:** Because all proper colorings (modulo irrelevant color labels) are explored or safely pruned, the best saved coloring minimizes `n_1 - n_k`, which equals the sum in the assignment definition. If no assignment is found, a proper coloring using exactly `k` colors does not exist.
+**Optimality.** We stop if the best imbalance reaches zero when `k` divides `n`, or one otherwise. No smaller value is possible. If we exhaust the search first, all other proper partitions were checked or could not beat our best result. If we saved no assignment, no proper coloring with exactly `k` classes exists.
 
 ## 7. Complexity analysis (30 points)
 
-Let `n` be the number of vertices, `m` the edges, and `k` the required number of colors.
+Let `n` be the vertex count, `m` the edge count, and `k` the color count. We use an adjacency matrix as required, so parsing a well-formed matrix, validation, and building adjacency lists take `O(n²)` time. The two-color traversal takes `O(n + m)` after the lists are built.
 
-- **Reading and checking the input:** `O(n²)` time for the matrix, symmetry and value checks, adjacency-list construction, and connectivity BFS on the adjacency matrix.
-- **Search:** in the worst case each vertex has at most `k` possible colors, yielding at most `O(k^n)` recursive states. Selecting the next DSATUR vertex may examine all uncolored vertices and their neighbors: `O(n + m)` per state, at most `O(n²)`. Pruning and ordering choices fit within this bound when `k <= n`.
-- **Worst-case total time:** `O(n² · k^n)` for `k <= n`; exponential time is expected because general graph-coloring feasibility is computationally hard. The DSATUR selection and pruning typically save work, but cannot eliminate the exponential worst case.
-- **Space:** `O(n²)` for the required adjacency matrix, plus `O(n + m)` for the adjacency list, `O(n + k)` for assignment/count arrays, and an `O(n)` recursion stack. Since `m <= n(n-1)/2`, **overall space is `O(n² + k)`**, or simply `O(n²)` when `k <= n`.
+For the general case, we visit at most `O(k^n)` search states. Assuming unit-cost mask operations, DSATUR scans up to `n` vertices, the bounds scan `k` counts and capacities, and sorting choices costs up to `O(k log k)` per state. Updating or undoing a branch scans at most one vertex’s neighbors or recorded changes. A conservative total is `O(n² + (n + k log k) · k^n)` time. Python integers can span multiple machine words, so mask operations can cost more for large `k`. The exact search remains exponential in the worst case.
+
+The matrix takes `O(n²)` space and the adjacency lists take `O(n + m)`. The stack has at most `n + 1` iterators, with up to `k` choices per level. The active undo lists together contain at most `O(m)` entries because each edge can contribute only when its first endpoint is assigned. The forbidden masks use up to `O(nk)` bits. Including the input matrix, the total is `O(n²)` space because the search runs only when `k ≤ n`.
 
 ## 8. Testing and results (100 points)
 
-The included automated test suite contains **12 test methods**. Along with individual examples and error handling, it checks **252 combinations of small, randomly generated connected graphs and color counts** against a separate brute-force reference implementation. For all feasible cases the tests independently confirm that every vertex appears exactly once, neighboring vertices receive different colors, all `k` classes are nonempty, the sequence is sorted, and the optimal imbalance matches exhaustive enumeration.
+We ran 28 automated tests, including 19 solver and CLI tests and nine visualizer adapter and HTTP tests. We compared the solver against a separate brute-force enumerator on 252 seeded random graph and color-count combinations. For feasible cases, we checked that all vertices appear once, classes are nonempty and proper, and the reported sizes and imbalance match the returned groups.
 
-| Input file / case | Expected | Actual result | Status |
+| Input file or case | Expected | Observed | Status |
 |---|---|---|---|
-| `example_k3.txt` (six-vertex handout example) | `(2,2,2)` | `(2,2,2)` | Pass |
-| `example_k2.txt` (same graph) | No valid two-coloring | `no such a sequence exists.` | Pass |
-| `path8_k3.txt` | `(3,3,2)` | `(3,3,2)` | Pass |
-| `star_k2.txt` | `(5,1)` | `(5,1)` | Pass |
-| `cycle5_k3.txt` | `(2,2,1)` | `(2,2,1)` | Pass |
-| `complete4_k4.txt` | `(1,1,1,1)` | `(1,1,1,1)` | Pass |
-| `single_vertex_k1.txt` | `(1)` | `(1)` | Pass |
-| Invalid matrices and file formats | Descriptive input error | Correctly rejected | Pass |
-| 252 random small graph/color instances | Independent brute-force optimum | Exact match in all cases | Pass |
+| `example_k3.txt` | `(2,2,2)` and the handout’s exact groups | Exact match | Pass |
+| `example_k2.txt` | `no such a sequence exists.` | Exact match | Pass |
+| `path8_k3.txt`, `star_k2.txt` | `(3,3,2)`, `(5,1)` | Exact matches | Pass |
+| `cycle5_k3.txt`, `triangle_k3.txt` | `(2,2,1)`, `(1,1,1)` | Exact matches | Pass |
+| `complete4_k4.txt`, `single_vertex_k1.txt` | `(1,1,1,1)`, `(1)` | Exact matches | Pass |
+| Eight-vertex handout tree | `(5,3)` with two colors and `(3,3,2)` with three | Exact matches | Pass |
+| Twenty-vertex handout diagram as transcribed | `(5,5,5,5)` with four colors | Balanced with four colors and infeasible with three | Pass |
+| Greedy DSATUR regression | Exact three-color solution despite greedy using four | Imbalance 1 | Pass |
+| Larger graphs, malformed inputs, and HTTP cases | Correct solutions, errors, and status codes | Assertions passed | Pass |
 
-Color names are interchangeable: for the handout example, this solution prints the same `(2,2,2)` and the same three independent vertex groups as the sample, but may assign **Blue**, **Red**, and **Yellow** to those groups in a different order. That is an equivalent proper coloring.
-
-### Commands to reproduce
-
-From the project folder:
+Our six-vertex result lists Blue as vertices 2 and 6, Red as 3 and 4, and Yellow as 1 and 5. For equal class sizes, we order groups by descending total vertex degree and then by vertex IDs. The complete test log is in `TEST_RESULTS.txt`.
 
 ```bash
 python3 main.py sample_inputs/example_k3.txt
 python3 main.py sample_inputs/example_k2.txt
-python3 -m unittest discover -s tests -v
+python3 -B -m unittest discover -s tests -v
 ```
-
-No external Python libraries or network access are needed.
-
 
 ## 9. Optional interactive visual demonstration
 
-An additional local browser interface (`visualizer.py` and the `visualizer/` directory) makes the core solution easier to demonstrate. The user can add and move numbered vertices, add/remove undirected edges, delete vertices, switch the number of colors, select sample graphs, and view the adjacency matrix automatically derived from the drawing. The **Find optimal coloring** button sends the selected integer `k` and the current 0/1 matrix to a local Python HTTP endpoint, which calls the **same** `find_almost_equal_coloring(matrix, k)` function as the required command-line program. It displays the class-size sequence, color-group vertex lists, and a colored graph. The animation is a step-by-step **reveal of the final optimal coloring**, not a depiction of each recursive backtracking branch.
+We developed a local browser editor to add, move, and delete vertices and to add or remove edges. We included sample loading and reset, a live adjacency matrix, and text import and export in the assignment’s format. The editor stores positions in a JavaScript array and undirected edge identifiers in a set.
 
-The browser also imports and exports `.txt` files containing `k`, `n`, and `n` space-separated adjacency-matrix rows. Thus the visual editor is **optional** and does not replace the assignment's required file input. The extra data structures are JavaScript arrays for vertex positions, a Set for undirected edge identifiers, and the adjacency matrix built from those edges. Browser rendering takes `O(n² + m)` due to the visible matrix; the exact solver's worst-case complexity remains `O(n² k^n)`.
+With **Find optimal coloring**, we send the current matrix and `k` to a local HTTP endpoint. The endpoint calls the same solver as our file-based CLI. The editor displays the sequence and groups, colors the vertices, and reports when no solution exists. Playback reveals the final coloring in vertex order. Our HTTP tests cover the server and solver adapter.
 
-**Running:** `python3 visualizer.py`, then use the local URL printed in the terminal. The server binds only to `127.0.0.1`, has no external dependencies, and serves the HTML/CSS/JavaScript plus a small JSON API.
-
-**Additional verification:** The visualizer server and adapter are covered by seven further automated tests for the handout's successful and impossible cases, invalid graphs, static asset delivery, sample loading, JSON solving, and bad requests. The full automated suite now has **19 passing tests**. Browser UI controls were additionally smoke-tested in a headless browser using a mocked local request layer due to the restricted test environment; API correctness was separately verified by real local HTTP requests.
+We launch the editor with `python3 visualizer.py` and open the printed loopback URL. The editor accepts up to 80 vertices. We use the CLI to run the required file-input workflow.

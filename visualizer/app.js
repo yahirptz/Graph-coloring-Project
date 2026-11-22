@@ -1,6 +1,6 @@
 "use strict";
 
-// The canvas builds a 0/1 adjacency matrix; /api/solve sends it to the original Python solver.
+// We send the canvas adjacency matrix to /api/solve, which uses the same solver as the CLI.
 const svg = document.getElementById("graph-svg");
 const nodesLayer = document.getElementById("nodes-layer");
 const edgesLayer = document.getElementById("edges-layer");
@@ -138,7 +138,6 @@ function parseInput(text){const rows=text.trim().split(/\r?\n/).map(s=>s.trim())
 async function solve(){if(solving)return;stopPlay();const k=Number($("k-input").value);if(!Number.isSafeInteger(k)||k<1){status("Enter a positive integer for k.","error");return;}if(!vertices.length){status("Add at least one vertex first.","error");return;}
  const startedAt=revision;solving=true;$("solve-btn").disabled=true;$("solve-label").textContent="Searching for an exact solution…";status("Finding a coloring…");try{const res=await fetch("/api/solve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({k,matrix:matrixOf()})});const data=await res.json();if(startedAt!==revision){status("Graph changed during the calculation; solve again.");return;}if(!res.ok)throw Error(data.error||"Solver error.");displayResult(data);}catch(e){if(startedAt===revision){invalidate();status(e.message,"error");}}finally{solving=false;$("solve-btn").disabled=false;$("solve-label").textContent="Find optimal coloring";}}
 function exportInput(){const k=Number($("k-input").value);if(!Number.isSafeInteger(k)||k<1){status("Enter a positive integer for k.","error");return;}if(!vertices.length){status("Add a vertex before exporting.","error");return;}const m=matrixOf();const text=[k,vertices.length,...m.map(row=>row.join(" "))].join("\n")+"\n";const blob=new Blob([text],{type:"text/plain"});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download="graph_input.txt";link.click();setTimeout(()=>URL.revokeObjectURL(url),1500);status("Exported graph_input.txt.","success");}
-// Directly connected UI events; all controls perform their advertised actions.
 document.querySelectorAll(".tool").forEach(el=>el.addEventListener("click",()=>setMode(el.dataset.tool)));
 $("k-plus").addEventListener("click",()=>{$("k-input").value=Math.max(1,Number($("k-input").value||0)+1);invalidate();renderGraph();});
 $("k-minus").addEventListener("click",()=>{$("k-input").value=Math.max(1,Number($("k-input").value||0)-1);invalidate();renderGraph();});
