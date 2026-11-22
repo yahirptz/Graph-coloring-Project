@@ -2,6 +2,8 @@
 
 import itertools
 import random
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -34,6 +36,13 @@ def independent_optimum(matrix, k):
     return best
 
 
+def adjacency_matrix(n, edges):
+    matrix = [[0] * n for _ in range(n)]
+    for a, b in edges:
+        matrix[a - 1][b - 1] = matrix[b - 1][a - 1] = 1
+    return matrix
+
+
 class GraphColoringTests(unittest.TestCase):
     def assert_valid_optimal(self, matrix, k, expected_score):
         result = find_almost_equal_coloring(matrix, k)
@@ -42,6 +51,7 @@ class GraphColoringTests(unittest.TestCase):
             return
         self.assertIsNotNone(result)
         self.assertEqual(len(result.groups), k)
+        self.assertEqual(result.sequence, tuple(map(len, result.groups)))
         self.assertEqual(tuple(sorted(result.sequence, reverse=True)), result.sequence)
         self.assertEqual(sum(result.sequence), len(matrix))
         self.assertTrue(all(size > 0 for size in result.sequence))
@@ -90,11 +100,91 @@ class GraphColoringTests(unittest.TestCase):
 
     def test_k_exceeds_n(self):
         _, matrix = read_graph(SAMPLES / "triangle_k3.txt")
+        self.assert_valid_optimal(matrix, 3, 0)
         self.assert_valid_optimal(matrix, 4, None)
 
     def test_k1_on_graph_with_edge_has_no_solution(self):
         _, matrix = read_graph(SAMPLES / "triangle_k3.txt")
         self.assert_valid_optimal(matrix, 1, None)
+
+    def test_handout_eight_vertex_tree(self):
+        matrix = adjacency_matrix(8, [(1, 2), (2, 3), (3, 4), (4, 5),
+                                      (3, 6), (3, 7), (3, 8)])
+        for k, sequence in [(2, (5, 3)), (3, (3, 3, 2))]:
+            with self.subTest(k=k):
+                self.assert_valid_optimal(matrix, k, independent_optimum(matrix, k))
+                self.assertEqual(find_almost_equal_coloring(matrix, k).sequence, sequence)
+
+    def test_handout_twenty_vertex_diagram(self):
+        # Transcribed from the four-color diagram, numbered clockwise around
+        # the outside first and then across the inside.
+        matrix = adjacency_matrix(20, [
+            (1, 2), (1, 14), (1, 15), (1, 16), (2, 3), (2, 4),
+            (3, 4), (3, 5), (3, 6), (4, 5), (4, 16), (4, 18),
+            (5, 6), (5, 7), (5, 18), (6, 7), (6, 8), (7, 8),
+            (7, 9), (7, 18), (8, 9), (8, 10), (9, 10), (9, 11),
+            (9, 18), (10, 12), (11, 12), (11, 19), (11, 20),
+            (12, 13), (12, 20), (13, 14), (13, 20), (14, 15),
+            (15, 16), (15, 17), (15, 20), (16, 17), (16, 18),
+            (17, 19), (17, 20), (18, 19), (19, 20),
+        ])
+        self.assert_valid_optimal(matrix, 4, 0)
+        self.assert_valid_optimal(matrix, 3, None)
+
+    def test_exact_search_recovers_from_greedy_dsatur_failure(self):
+        matrix = adjacency_matrix(7, [
+            (1, 2), (1, 3), (1, 7), (2, 3), (2, 4), (2, 7),
+            (3, 6), (4, 5), (4, 6), (5, 6), (5, 7),
+        ])
+        greedy = {}
+        while len(greedy) < len(matrix):
+            forbidden = {
+                v: {color for u, color in greedy.items() if matrix[v][u]}
+                for v in range(len(matrix)) if v not in greedy
+            }
+            vertex = max(forbidden, key=lambda v: (len(forbidden[v]), sum(matrix[v]), -v))
+            greedy[vertex] = next(color for color in range(len(matrix))
+                                  if color not in forbidden[vertex])
+        self.assertEqual(len(set(greedy.values())), 4)
+        self.assertEqual(independent_optimum(matrix, 3), 1)
+        self.assert_valid_optimal(matrix, 3, 1)
+
+    def test_larger_graphs(self):
+        path = adjacency_matrix(80, [(v, v + 1) for v in range(1, 80)])
+        self.assert_valid_optimal(path, 5, 0)
+        star = adjacency_matrix(80, [(1, v) for v in range(2, 81)])
+        self.assert_valid_optimal(star, 3, 39)
+        clique = [[int(a != b) for b in range(80)] for a in range(80)]
+        self.assert_valid_optimal(clique, 79, None)
+        self.assert_valid_optimal(clique, 80, 0)
+
+    def test_search_can_exceed_python_recursion_depth(self):
+        n = sys.getrecursionlimit() + 1
+        path = adjacency_matrix(n, [(v, v + 1) for v in range(1, n)])
+        self.assert_valid_optimal(path, 3, int(n % 3 != 0))
+
+    def test_cli_handout_examples_and_default(self):
+        expected = "(2,2,2)\nBlue    : 2, 6\nRed     : 3, 4\nYellow  : 1, 5\n"
+        for args, output in [
+            ([], expected),
+            ([str(SAMPLES / "example_k3.txt")], expected),
+            ([str(SAMPLES / "example_k2.txt")], "no such a sequence exists.\n"),
+        ]:
+            with self.subTest(args=args):
+                run = subprocess.run([sys.executable, "-B", str(ROOT / "main.py"), *args],
+                                     capture_output=True, text=True, check=True)
+                self.assertEqual(run.stdout, output)
+                self.assertEqual(run.stderr, "")
+
+    def test_cli_rejects_malformed_matrix(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "invalid.txt"
+            path.write_text("2\n2\n0 1\n0 0\n", encoding="utf-8")
+            run = subprocess.run([sys.executable, "-B", str(ROOT / "main.py"), str(path)],
+                                 capture_output=True, text=True)
+            self.assertEqual(run.returncode, 2)
+            self.assertEqual(run.stdout, "")
+            self.assertIn("symmetric", run.stderr)
 
     def test_invalid_matrix_inputs(self):
         invalid = [
@@ -103,6 +193,9 @@ class GraphColoringTests(unittest.TestCase):
             ([[0, 0], [0, 0]], "connected"),
             ([[0, 2], [2, 0]], "0 or 1"),
             ([[0, 1], [1]], "square"),
+            ([[0, 1], None], "square"),
+            ([[0, True], [True, 0]], "0 or 1"),
+            ([[0, 1.0], [1.0, 0]], "0 or 1"),
         ]
         for graph, message in invalid:
             with self.subTest(graph=graph), self.assertRaisesRegex(ValueError, message):

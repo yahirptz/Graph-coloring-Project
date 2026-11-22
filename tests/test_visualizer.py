@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class VisualizerTests(unittest.TestCase):
     def test_handout_sample_same_as_command_line_solver(self):
         rows = (ROOT / "sample_inputs/example_k3.txt").read_text().splitlines()
-        k, n = int(rows[0]), int(rows[1])
+        k = int(rows[0])
         matrix = [list(map(int, r.split())) for r in rows[2:]]
         result = solve_payload({"k": k, "matrix": matrix})
         self.assertTrue(result["possible"])
@@ -72,14 +72,36 @@ class VisualizerTests(unittest.TestCase):
         self.assertEqual(result["sequence"], [1, 1, 1])
         self.assertEqual(result["imbalance"], 0)
 
+    def test_impossible_result_through_api(self):
+        url = self.base + "/api/example?name=example_k2"
+        with urlopen(url) as response:
+            sample = response.read()
+        with urlopen(Request(self.base + "/api/solve", sample)) as response:
+            self.assertEqual(json.load(response), {
+                "possible": False,
+                "text": "no such a sequence exists.",
+            })
+
+    def test_malformed_matrix_through_api(self):
+        for matrix in ([], [[0, 1], None], [[0, True], [True, 0]], [[0, 1], [0, 0]]):
+            with self.subTest(matrix=matrix):
+                body = json.dumps({"k": 2, "matrix": matrix}).encode()
+                with self.assertRaises(HTTPError) as error:
+                    urlopen(Request(self.base + "/api/solve", body))
+                with error.exception as response:
+                    self.assertEqual(response.code, 400)
+                    self.assertIn("error", json.load(response))
+
     def test_reject_unknown_sample_and_malformed_post(self):
         with self.assertRaises(HTTPError) as ctx:
             urlopen(self.base + "/api/example?name=../../private")
-        self.assertEqual(ctx.exception.code, 404)
+        with ctx.exception as response:
+            self.assertEqual(response.code, 404)
         request = Request(self.base + "/api/solve", b"not json", {"Content-Type": "application/json"})
         with self.assertRaises(HTTPError) as ctx:
             urlopen(request)
-        self.assertEqual(ctx.exception.code, 400)
+        with ctx.exception as response:
+            self.assertEqual(response.code, 400)
 
 
 if __name__ == "__main__":

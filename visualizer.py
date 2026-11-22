@@ -35,7 +35,7 @@ def solve_payload(payload: dict) -> dict:
     matrix = payload.get("matrix")
     if type(k) is not int or k < 1:
         raise ValueError("The number of colors (k) must be a positive integer.")
-    if not isinstance(matrix, list) or len(matrix) > 80:
+    if not isinstance(matrix, list) or not 1 <= len(matrix) <= 80:
         raise ValueError("The graph must contain between 1 and 80 vertices.")
     # The same exact algorithm and adjacency validation as the file program.
     result = find_almost_equal_coloring(matrix, k)
@@ -105,7 +105,7 @@ class GraphHandler(BaseHTTPRequestHandler):
                 raise ValueError("Invalid or oversized request.")
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
             result = solve_payload(payload)
-        except (ValueError, TypeError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        except ValueError as exc:
             self.respond_json(400, {"error": str(exc)})
             return
         self.respond_json(200, result)
