@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Graph Coloring · CS 421 Project 2</title>
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="course">CS 421 · Project 2</p>
+        <h1>Graph Coloring</h1>
+      </div>
+      <a href="#guide">How to use</a>
+    </header>
+
+    <main>
+      <div class="intro-counts" aria-label="Graph size">
+        <span><strong id="vertex-count">6</strong> vertices</span>
+        <span><strong id="edge-count">7</strong> edges</span>
+      </div>
+
+      <div class="workspace">
+        <section class="panel graph-panel" aria-label="Interactive graph editor">
+          <div class="panel-top"><div><h3>Graph canvas</h3></div><span class="hint-badge" id="mode-hint">Click empty space to add a vertex</span></div>
+          <div class="tools" role="toolbar" aria-label="Graph editing tools">
+            <button type="button" class="tool active" data-tool="add" aria-pressed="true">Add vertex</button>
+            <button type="button" class="tool" data-tool="connect" aria-pressed="false">Connect</button>
+            <button type="button" class="tool" data-tool="move" aria-pressed="false">Move</button>
+            <button type="button" class="tool" data-tool="delete" aria-pressed="false">Delete</button>
+          </div>
+          <div class="canvas-container">
+            <svg id="graph-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 510" aria-label="Graph editor. Select the Add vertex tool and click an empty area to create a node." role="img">
+              <rect class="canvas-bg" width="800" height="510"></rect><g id="edges-layer"></g><g id="nodes-layer"></g>
+            </svg>
+          </div>
+          <div class="canvas-footer"><div class="status" id="status" role="status"><span class="status-dot"></span>Example loaded.</div><div class="footer-actions"><button id="clear-graph" class="text-btn" type="button">Clear graph</button><button id="reset-example" class="text-btn" type="button">Reset example</button></div></div>
+        </section>
+
+        <aside class="side">
+          <section class="panel config-panel"><h3>Coloring settings</h3><label class="field-label" for="sample-list">Example graph</label><select id="sample-list"><option value="example_k3">Sample graph (6 vertices)</option><option value="star_k2">Star graph (6 vertices)</option><option value="cycle5_k3">Odd cycle (5 vertices)</option><option value="path8_k3">Path graph (8 vertices)</option><option value="triangle_k3">Triangle (3 vertices)</option><option value="complete4_k4">Complete graph (4 vertices)</option><option value="single_vertex_k1">Single vertex</option></select>
+            <label class="field-label" for="k-input">Number of colors <span>(k)</span></label><div class="k-control"><input id="k-input" type="number" min="1" max="80" value="3" inputmode="numeric"><div class="k-stepper"><button type="button" id="k-plus" aria-label="Increase number of colors">+</button><button type="button" id="k-minus" aria-label="Decrease number of colors">−</button></div></div>
+            <button class="solve-btn" type="button" id="solve-btn"><span id="solve-label">Find optimal coloring</span></button>
+          </section>
+          <section class="panel result-panel"><div class="result-head"><h3>Color sequence</h3><span id="result-badge" class="result-badge">NOT SOLVED</span></div><div class="sequence" id="sequence"><span class="placeholder">Run the solver to see your result.</span></div><div class="balance" id="balance"></div><div id="groups" class="groups"></div><div id="playback" class="playback" hidden><div class="play-label"><span>Coloring playback</span><span id="step-label">0 / 0</span></div><div class="play-slider-wrap"><input id="step-slider" type="range" min="0" max="0" value="0" aria-label="Coloring reveal step"></div><div class="play-buttons"><button type="button" id="prev-step" aria-label="Previous step">←</button><button type="button" id="play-step" class="play-main" aria-label="Play coloring reveal">▶ Play</button><button type="button" id="next-step" aria-label="Next step">→</button></div></div></section>
+        </aside>
+      </div>
+
+      <section class="lower-grid">
+        <div class="panel matrix-panel"><div class="panel-top"><div><h3>Adjacency matrix</h3></div></div><div class="matrix-scroll" id="matrix-preview"></div></div>
+        <div class="panel exchange-panel"><h3>Graph files</h3><div class="exchange-actions"><button id="export-file" type="button" class="secondary-btn">Export .txt</button><label for="import-file" class="secondary-btn import-label">Import .txt</label><input type="file" id="import-file" accept=".txt,text/plain" hidden></div><div class="exchange-info">File format: number of colors, number of vertices, then the adjacency matrix.</div></div>
+      </section>
+      <section class="guide" id="guide"><h3>How to use</h3><div class="guide-grid"><div><h4>Add or move vertices</h4><p>Choose <strong>Add vertex</strong> and click the canvas. Use <strong>Move</strong> to drag nodes into position.</p></div><div><h4>Add or remove edges</h4><p>Choose <strong>Connect</strong>, then select two vertices. Select the same pair again to remove the edge.</p></div><div><h4>Find a coloring</h4><p>Set the number of colors and click <strong>Find optimal coloring</strong>.</p></div></div></section>
+    </main>
+  </div>
+</body>
+</html>
