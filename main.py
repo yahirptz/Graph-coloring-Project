@@ -2,6 +2,7 @@
 
 import argparse
 from pathlib import Path
+
 from graph_coloring import find_almost_equal_coloring, format_result, read_graph
 
 

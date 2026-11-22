@@ -17,7 +17,7 @@ We serve the editor locally at **http://127.0.0.1:8765** and allow up to 80 vert
 3. **Move / Delete:** drag existing vertices with Move, or delete nodes or edges with Delete.
 4. **Choose k:** edit Number of colors, then click **Find optimal coloring**. The exact solver colors the nodes and shows the sequence and vertex groups. The playback controls reveal the final coloring one vertex at a time (not the full backtracking search).
 5. **Use custom graphs:** choose one of the provided examples or clear the canvas. A live adjacency matrix appears under the drawing.
-6. **Import / Export:** export `graph_input.txt` from the editor, then run `python3 main.py graph_input.txt` to execute the standard assignment interface. You can import a `.txt` file in the assignment format as well.
+6. **Import / Export:** export `graph_input.txt` from the editor, then pass the downloaded file’s path to `main.py`. If the file is in the project folder, run `python3 main.py graph_input.txt`. You can import a `.txt` file in the assignment format as well.
 
 **Important:** The assignment specifies a **simple connected** graph. If you draw a disconnected graph, the solver will show an input error until you connect its components. Exact graph coloring can take a long time on large/hard graphs. We use `main.py` for the assignment’s file-input workflow and the editor for interactive demonstrations.
 
@@ -25,7 +25,7 @@ We serve the editor locally at **http://127.0.0.1:8765** and allow up to 80 vert
 
 - If port 8765 is in use: `python3 visualizer.py --port 0` (it prints a different local URL).
 - If it doesn't open a browser: `python3 visualizer.py --no-browser`, then enter the printed URL yourself.
-- If `python3` is not found, install Python 3 on your computer.
+- If `python3` is not found, install Python 3.10 or newer.
 - If Python starts but the browser cannot connect, leave the terminal running and use the exact URL displayed there.
 
 ## Quick start (command-line version)

@@ -6,12 +6,12 @@ We bind to loopback and share the same solver with the command-line runner.
 from __future__ import annotations
 
 import argparse
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
-from pathlib import Path
 import threading
-from urllib.parse import parse_qs, urlsplit
 import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 from graph_coloring import find_almost_equal_coloring, format_result, read_graph
 
@@ -22,7 +22,11 @@ ALLOWED_EXAMPLES = {
     "example_k3", "example_k2", "triangle_k3", "star_k2",
     "cycle5_k3", "path8_k3", "complete4_k4", "single_vertex_k1",
 }
-CONTENT_TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "application/javascript; charset=utf-8"}
+CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "application/javascript; charset=utf-8",
+}
 
 
 def solve_payload(payload: dict) -> dict:

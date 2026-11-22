@@ -134,10 +134,60 @@ async function loadExample(name){const version=++loadVersion;try{const response=
 function displayResult(data){solution=data;stopPlay();const badge=$("result-badge");if(!data.possible){badge.className="result-badge invalid";badge.textContent="IMPOSSIBLE";$("sequence").textContent="No valid coloring";$("balance").textContent=data.text;$("groups").replaceChildren();$("playback").hidden=true;step=0;renderGraph();status("No coloring using exactly k nonempty colors exists.","error");return;}
  badge.className="result-badge valid";badge.textContent="OPTIMAL";$("sequence").textContent=`(${data.sequence.join(",")})`;$("balance").textContent=`Minimum class-size difference: ${data.imbalance}`;const list=$("groups");list.replaceChildren();data.groups.forEach((group,i)=>{const row=document.createElement("div");row.className="group";const swatch=document.createElement("span");swatch.className="swatch";swatch.style.background=groupColor(i);const name=document.createElement("strong");name.className="group-name";name.textContent=groupName(i);const number=document.createElement("span");number.className="group-number";number.textContent=group.join(", ");row.append(swatch,name,number);list.append(row);});$("playback").hidden=false;step=vertices.length;$("step-slider").max=vertices.length;updateStep();status("Optimal coloring found.","success");}
 function updateStep(){if(!solution?.possible)return;$("step-slider").value=step;$("step-label").textContent=`${step} / ${vertices.length}`;renderGraph();}
-function parseInput(text){const rows=text.trim().split(/\r?\n/).map(s=>s.trim()).filter(Boolean);if(rows.length<3)throw Error("File must contain k, n, then n adjacency rows.");if(!rows.slice(0,2).every(row=>/^\+?\d+$/.test(row)))throw Error("k and n must be positive integers.");const k=Number(rows[0]),n=Number(rows[1]);if(!Number.isSafeInteger(k)||k<1||!Number.isInteger(n)||n<1||n>MAX_VERTICES)throw Error("k and n must be positive integers (maximum 80 vertices).");if(rows.length!==n+2)throw Error(`Expected ${n} adjacency rows but found ${rows.length-2}.`);const matrix=rows.slice(2).map((row,i)=>{const tokens=row.split(/\s+/);if(tokens.length!==n||tokens.some(t=>t!=="0"&&t!=="1"))throw Error(`Row ${i+1} must have ${n} space-separated zeros and ones.`);return tokens.map(Number);});for(let i=0;i<n;i++){if(matrix[i][i]!==0)throw Error("Self-loops are not allowed.");for(let j=0;j<n;j++)if(matrix[i][j]!==matrix[j][i])throw Error("The matrix must be symmetric.");}return {k,matrix};}
+function parseInput(text) {
+  const rows = text.trim().split(/\r?\n/).map(row => row.trim()).filter(Boolean);
+  if (rows.length < 3) throw Error("File must contain k, n, then n adjacency rows.");
+  if (!rows.slice(0, 2).every(row => /^\+?\d+$/.test(row))) {
+    throw Error("k and n must be positive integers.");
+  }
+  const k = Number(rows[0]);
+  const n = Number(rows[1]);
+  if (!Number.isSafeInteger(k) || k < 1 || !Number.isInteger(n) || n < 1 || n > MAX_VERTICES) {
+    throw Error("k and n must be positive integers (maximum 80 vertices).");
+  }
+  if (rows.length !== n + 2) {
+    throw Error(`Expected ${n} adjacency rows but found ${rows.length - 2}.`);
+  }
+
+  const matrix = rows.slice(2).map((row, index) => {
+    const tokens = row.split(/\s+/);
+    if (tokens.length !== n || tokens.some(token => token !== "0" && token !== "1")) {
+      throw Error(`Row ${index + 1} must have ${n} space-separated zeros and ones.`);
+    }
+    return tokens.map(Number);
+  });
+  for (let i = 0; i < n; i++) {
+    if (matrix[i][i] !== 0) throw Error("Self-loops are not allowed.");
+    for (let j = 0; j < n; j++) {
+      if (matrix[i][j] !== matrix[j][i]) throw Error("The matrix must be symmetric.");
+    }
+  }
+  return {k, matrix};
+}
 async function solve(){if(solving)return;stopPlay();const k=Number($("k-input").value);if(!Number.isSafeInteger(k)||k<1){status("Enter a positive integer for k.","error");return;}if(!vertices.length){status("Add at least one vertex first.","error");return;}
  const startedAt=revision;solving=true;$("solve-btn").disabled=true;$("solve-label").textContent="Searching for an exact solution…";status("Finding a coloring…");try{const res=await fetch("/api/solve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({k,matrix:matrixOf()})});const data=await res.json();if(startedAt!==revision){status("Graph changed during the calculation; solve again.");return;}if(!res.ok)throw Error(data.error||"Solver error.");displayResult(data);}catch(e){if(startedAt===revision){invalidate();status(e.message,"error");}}finally{solving=false;$("solve-btn").disabled=false;$("solve-label").textContent="Find optimal coloring";}}
-function exportInput(){const k=Number($("k-input").value);if(!Number.isSafeInteger(k)||k<1){status("Enter a positive integer for k.","error");return;}if(!vertices.length){status("Add a vertex before exporting.","error");return;}const m=matrixOf();const text=[k,vertices.length,...m.map(row=>row.join(" "))].join("\n")+"\n";const blob=new Blob([text],{type:"text/plain"});const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download="graph_input.txt";link.click();setTimeout(()=>URL.revokeObjectURL(url),1500);status("Exported graph_input.txt.","success");}
+function exportInput() {
+  const k = Number($("k-input").value);
+  if (!Number.isSafeInteger(k) || k < 1) {
+    status("Enter a positive integer for k.", "error");
+    return;
+  }
+  if (!vertices.length) {
+    status("Add a vertex before exporting.", "error");
+    return;
+  }
+
+  const rows = matrixOf().map(row => row.join(" "));
+  const text = [k, vertices.length, ...rows].join("\n") + "\n";
+  const blob = new Blob([text], {type: "text/plain"});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "graph_input.txt";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  status("Exported graph_input.txt.", "success");
+}
 document.querySelectorAll(".tool").forEach(el=>el.addEventListener("click",()=>setMode(el.dataset.tool)));
 $("k-plus").addEventListener("click",()=>{$("k-input").value=Math.max(1,Number($("k-input").value||0)+1);invalidate();renderGraph();});
 $("k-minus").addEventListener("click",()=>{$("k-input").value=Math.max(1,Number($("k-input").value||0)-1);invalidate();renderGraph();});
