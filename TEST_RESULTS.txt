@@ -3,8 +3,9 @@ CS 421 Project 2 — Automated Test Results
 We ran the full suite with the following command.
 python3 -B -m unittest discover -s tests -v
 
-All 28 tests passed, including 252 seeded comparisons with our independent
-brute-force reference and nine visualizer adapter and HTTP tests.
+All 29 tests passed, including 252 seeded comparisons with our independent
+brute-force reference and nine visualizer adapter and HTTP tests. We also
+checked 3,807 exhaustive graph and color-count cases in a separate run.
 
 test_against_independent_brute_force_random_connected_graphs (test_graph_coloring.GraphColoringTests.test_against_independent_brute_force_random_connected_graphs) ... ok
 test_assignment_k2_is_impossible (test_graph_coloring.GraphColoringTests.test_assignment_k2_is_impossible) ... ok
@@ -12,6 +13,7 @@ test_assignment_k3_matches_handout_sequence (test_graph_coloring.GraphColoringTe
 test_cli_handout_examples_and_default (test_graph_coloring.GraphColoringTests.test_cli_handout_examples_and_default) ... ok
 test_cli_rejects_malformed_matrix (test_graph_coloring.GraphColoringTests.test_cli_rejects_malformed_matrix) ... ok
 test_complete_graph (test_graph_coloring.GraphColoringTests.test_complete_graph) ... ok
+test_even_cycle_with_two_and_three_colors (test_graph_coloring.GraphColoringTests.test_even_cycle_with_two_and_three_colors) ... ok
 test_exact_search_recovers_from_greedy_dsatur_failure (test_graph_coloring.GraphColoringTests.test_exact_search_recovers_from_greedy_dsatur_failure) ... ok
 test_handout_eight_vertex_tree (test_graph_coloring.GraphColoringTests.test_handout_eight_vertex_tree) ... ok
 test_handout_twenty_vertex_diagram (test_graph_coloring.GraphColoringTests.test_handout_twenty_vertex_diagram) ... ok
@@ -36,7 +38,7 @@ test_sample_endpoint (test_visualizer.VisualizerTests.test_sample_endpoint) ... 
 test_solve_http_endpoint (test_visualizer.VisualizerTests.test_solve_http_endpoint) ... ok
 
 ----------------------------------------------------------------------
-Ran 28 tests in 0.908s
+Ran 29 tests in 1.056s
 
 OK
 [visualizer] 127.0.0.1 "GET / HTTP/1.1" 200 -

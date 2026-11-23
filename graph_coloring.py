@@ -86,8 +86,8 @@ def validate_graph(matrix: list[list[int]]) -> None:
 def find_almost_equal_coloring(matrix: list[list[int]], k: int) -> Optional[ColoringResult]:
     """Find a proper coloring using exactly k colors with minimum imbalance.
 
-    For the general case, we use DSATUR vertex selection and exact
-    depth-first backtracking with color symmetry breaking and branch-and-bound.
+    For the general case, we use depth-first backtracking in a fixed
+    vertex order, with color symmetry breaking and branch-and-bound.
     """
     validate_graph(matrix)
     if type(k) is not int or k < 1:
@@ -136,11 +136,27 @@ def two_color(adjacency: list[list[int]]) -> Optional[tuple[int, ...]]:
     return tuple(colors)
 
 
+def choose_vertex_order(adjacency: list[list[int]], degree: list[int]) -> list[int]:
+    """Put vertices with more neighbors already in the order first."""
+    earlier_neighbors = [0] * len(adjacency)
+    unordered = set(range(len(adjacency)))
+    order = []
+    while unordered:
+        # Ties favor higher degree, then lower ID. We decide this order
+        # before search, so it never depends on the colors we try.
+        vertex = max(unordered, key=lambda v: (earlier_neighbors[v], degree[v], -v))
+        unordered.remove(vertex)
+        order.append(vertex)
+        for neighbor in adjacency[vertex]:
+            if neighbor in unordered:
+                earlier_neighbors[neighbor] += 1
+    return order
+
+
 @dataclass
 class SearchFrame:
     """The remaining choices and undo information for one vertex."""
 
-    vertex: int
     used_colors: int
     choices: Iterator[int]
     previous_capacity: int = 0
@@ -149,6 +165,7 @@ class SearchFrame:
 def search_coloring(adjacency: list[list[int]], degree: list[int],
                     k: int) -> Optional[tuple[int, ...]]:
     n = len(adjacency)
+    order = choose_vertex_order(adjacency, degree)
     assigned = [-1] * n
     counts = [0] * k
     capacities = [n] * k
@@ -174,9 +191,6 @@ def search_coloring(adjacency: list[list[int]], degree: list[int],
         needed = sum(max(0, smallest_lower - count) for count in counts)
         return needed <= remaining
 
-    def neighbor_colors(vertex: int) -> set[int]:
-        return {assigned[u] for u in adjacency[vertex] if assigned[u] != -1}
-
     def make_frame(remaining: int, used_colors: int) -> Optional[SearchFrame]:
         missing_colors = k - used_colors
         if remaining < missing_colors:
@@ -184,11 +198,8 @@ def search_coloring(adjacency: list[list[int]], degree: list[int],
         if best_assignment is not None and not can_improve(remaining):
             return None
 
-        # We choose the uncolored vertex with the most distinct neighbor
-        # colors, then prefer higher degree and lower vertex ID.
-        vertex = max((v for v in range(n) if assigned[v] == -1),
-                     key=lambda v: (len(neighbor_colors(v)), degree[v], -v))
-        forbidden = neighbor_colors(vertex)
+        vertex = order[n - remaining]
+        forbidden = {assigned[u] for u in adjacency[vertex] if assigned[u] != -1}
         choices = []
         # Unused colors are interchangeable, so we try only the next one.
         if missing_colors:
@@ -196,7 +207,7 @@ def search_coloring(adjacency: list[list[int]], degree: list[int],
         if remaining > missing_colors:
             choices.extend(sorted((c for c in range(used_colors) if c not in forbidden),
                                   key=lambda c: (counts[c], c)))
-        return SearchFrame(vertex, used_colors, iter(choices))
+        return SearchFrame(used_colors, iter(choices))
 
     # We use a depth-first stack so even inputs beyond Python's recursion
     # limit can use the same backtracking routine.
@@ -204,7 +215,7 @@ def search_coloring(adjacency: list[list[int]], degree: list[int],
     stack = [first] if first is not None else []
     while stack and best_imbalance > minimum_possible:
         frame = stack[-1]
-        vertex = frame.vertex
+        vertex = order[len(stack) - 1]
 
         # On return from a child (or a complete coloring), undo our last try.
         previous_color = assigned[vertex]

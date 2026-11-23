@@ -96,15 +96,15 @@ no such a sequence exists.
 - `START_VISUALIZER.command` — optional macOS double-click launcher.
 - `visualizer.py` — local web server using Python standard library, with APIs for samples and solving.
 - `visualizer/index.html`, `visualizer/style.css`, `visualizer/app.js` — interactive graph drawing, animation, live matrix and TXT import/export.
-- `graph_coloring.py` — exact DSATUR-ordered backtracking solver and input validation.
+- `graph_coloring.py` — exact depth-first backtracking solver and input validation.
 - `sample_inputs/` — the handout example and edge-case graphs.
-- `tests/test_graph_coloring.py`, `tests/test_visualizer.py` — 28 automated tests, including independent brute-force cross-checks on 252 random graph/color cases and visualizer HTTP/API checks.
+- `tests/test_graph_coloring.py`, `tests/test_visualizer.py` — 29 automated tests, including independent brute-force cross-checks on 252 random graph/color cases and visualizer HTTP/API checks.
 - `REPORT.md` — full explanation of the technique, data structures, major functions, correctness, complexity, and test results.
-- `Project2_Report.docx` — Word version of our report.
+- `Project2_Report.docx` — Word report, maintained separately.
 - `TEST_RESULTS.txt` — output from our latest full test run.
 
 ## Approach and limitations
 
 We minimize the handout’s sum of differences between consecutive class sizes. Because the sizes are sorted, the sum telescopes to the largest class size minus the smallest.
 
-We use an explicit stack for exact backtracking, DSATUR with forbidden-color bit masks to select vertices, and class-size bounds to prune branches. We handle two-color cases with a bipartite traversal. The exact search can take exponential time on difficult instances. Our report gives the complexity analysis and test results.
+We order the vertices once using their adjacency lists, then use an explicit stack for exact backtracking. We check neighbor colors with sets and use class-size bounds to prune branches. We handle two-color cases with a bipartite traversal. The exact search can take exponential time on difficult instances. Our report gives the complexity analysis and test results.
