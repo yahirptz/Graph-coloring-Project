@@ -87,7 +87,7 @@ def find_almost_equal_coloring(matrix: list[list[int]], k: int) -> Optional[Colo
     """Find a proper coloring using exactly k colors with minimum imbalance.
 
     For the general case, we use DSATUR vertex selection and exact
-    backtracking with color symmetry breaking and branch-and-bound.
+    depth-first backtracking with color symmetry breaking and branch-and-bound.
     """
     validate_graph(matrix)
     if type(k) is not int or k < 1:
@@ -136,85 +136,105 @@ def two_color(adjacency: list[list[int]]) -> Optional[tuple[int, ...]]:
     return tuple(colors)
 
 
+@dataclass
+class SearchFrame:
+    """The remaining choices and undo information for one vertex."""
+
+    vertex: int
+    used_colors: int
+    choices: Iterator[int]
+    previous_capacity: int = 0
+
+
 def search_coloring(adjacency: list[list[int]], degree: list[int],
                     k: int) -> Optional[tuple[int, ...]]:
     n = len(adjacency)
     assigned = [-1] * n
-    forbidden = [0] * n
     counts = [0] * k
     capacities = [n] * k
     best_assignment = None
-    best_range = n + 1
-    floor, remainder = divmod(n, k)
+    best_imbalance = n + 1
+    average_floor, remainder = divmod(n, k)
+    minimum_possible = int(remainder != 0)
 
-    def branches(colored: int, used: int) -> Iterator[tuple[int, int]]:
-        nonlocal best_assignment, best_range
-        remaining = n - colored
-        if remaining < k - used:
-            return
-        if not remaining:
-            difference = max(counts) - min(counts)
-            if difference < best_range:
-                best_range = difference
-                best_assignment = tuple(assigned)
-            return
+    def can_improve(remaining: int) -> bool:
+        # A better coloring must have imbalance at most best_imbalance - 1.
+        # Bound the smallest class by the average, the remaining vertices,
+        # and the tightest class capacity.
+        smallest_upper = min(average_floor, min(counts) + remaining, min(capacities))
+        largest_upper = smallest_upper + best_imbalance - 1
+        if max(counts) > largest_upper:
+            return False
+        if sum(min(capacity, largest_upper) for capacity in capacities) < n:
+            return False
 
-        if best_assignment is not None:
-            # To beat the incumbent by one, the largest class must fit
-            # within this upper limit. The smallest class is bounded by
-            # the average, by available vertices, and by class capacities.
-            smallest_upper = min(floor, min(counts) + remaining, min(capacities))
-            largest_upper = smallest_upper + best_range - 1
-            if max(counts) > largest_upper:
-                return
-            if sum(min(capacity, largest_upper) for capacity in capacities) < n:
-                return
-            # Every final class is within the target range of a largest
-            # class, whose size is at least its current size or ceil(n/k).
-            largest_lower = max(max(counts), floor + bool(remainder))
-            smallest_lower = max(1, largest_lower - best_range + 1)
-            if sum(max(0, smallest_lower - size) for size in counts) > remaining:
-                return
+        # Each class must get close enough to the largest eventual class.
+        largest_lower = max(max(counts), average_floor + minimum_possible)
+        smallest_lower = max(1, largest_lower - best_imbalance + 1)
+        needed = sum(max(0, smallest_lower - count) for count in counts)
+        return needed <= remaining
 
+    def neighbor_colors(vertex: int) -> set[int]:
+        return {assigned[u] for u in adjacency[vertex] if assigned[u] != -1}
+
+    def make_frame(remaining: int, used_colors: int) -> Optional[SearchFrame]:
+        missing_colors = k - used_colors
+        if remaining < missing_colors:
+            return None
+        if best_assignment is not None and not can_improve(remaining):
+            return None
+
+        # We choose the uncolored vertex with the most distinct neighbor
+        # colors, then prefer higher degree and lower vertex ID.
         vertex = max((v for v in range(n) if assigned[v] == -1),
-                     key=lambda v: (forbidden[v].bit_count(), degree[v], -v))
-        # Only introduce the next unused color. When every remaining vertex
-        # must open a class, skip the existing colors entirely.
+                     key=lambda v: (len(neighbor_colors(v)), degree[v], -v))
+        forbidden = neighbor_colors(vertex)
         choices = []
-        if remaining > k - used:
-            choices = sorted((c for c in range(used) if not forbidden[vertex] & (1 << c)),
-                             key=lambda c: (counts[c], c))
-        if used < k:
-            choices.insert(0, used)
+        # Unused colors are interchangeable, so we try only the next one.
+        if missing_colors:
+            choices.append(used_colors)
+        if remaining > missing_colors:
+            choices.extend(sorted((c for c in range(used_colors) if c not in forbidden),
+                                  key=lambda c: (counts[c], c)))
+        return SearchFrame(vertex, used_colors, iter(choices))
 
-        for color in choices:
-            bit = 1 << color
-            assigned[vertex] = color
-            counts[color] += 1
-            old_capacity = capacities[color]
-            # A class containing this vertex cannot contain its neighbors.
-            capacities[color] = min(old_capacity, n - degree[vertex])
-            changed = []
-            for neighbor in adjacency[vertex]:
-                if assigned[neighbor] == -1 and not forbidden[neighbor] & bit:
-                    forbidden[neighbor] |= bit
-                    changed.append(neighbor)
-            yield colored + 1, used + (color == used)
-            for neighbor in changed:
-                forbidden[neighbor] ^= bit
-            capacities[color] = old_capacity
-            counts[color] -= 1
+    # We use a depth-first stack so even inputs beyond Python's recursion
+    # limit can use the same backtracking routine.
+    first = make_frame(n, 0)
+    stack = [first] if first is not None else []
+    while stack and best_imbalance > minimum_possible:
+        frame = stack[-1]
+        vertex = frame.vertex
+
+        # On return from a child (or a complete coloring), undo our last try.
+        previous_color = assigned[vertex]
+        if previous_color != -1:
             assigned[vertex] = -1
+            counts[previous_color] -= 1
+            capacities[previous_color] = frame.previous_capacity
 
-    # We keep an explicit stack to avoid Python's recursion limit. Each
-    # suspended iterator undoes its own assignment when resumed.
-    stack = [branches(0, 0)]
-    while stack and best_range != bool(remainder):
-        child = next(stack[-1], None)
-        if child is None:
+        color = next(frame.choices, None)
+        if color is None:
             stack.pop()
+            continue
+
+        assigned[vertex] = color
+        counts[color] += 1
+        frame.previous_capacity = capacities[color]
+        # A class containing this vertex cannot contain any of its neighbors.
+        capacities[color] = min(capacities[color], n - degree[vertex])
+        remaining = n - len(stack)
+        if remaining == 0:
+            imbalance = max(counts) - min(counts)
+            if imbalance < best_imbalance:
+                best_imbalance = imbalance
+                best_assignment = tuple(assigned)
         else:
-            stack.append(branches(*child))
+            used_colors = frame.used_colors + int(color == frame.used_colors)
+            child = make_frame(remaining, used_colors)
+            if child is not None:
+                stack.append(child)
+
     return best_assignment
 
 

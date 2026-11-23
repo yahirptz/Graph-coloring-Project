@@ -89,6 +89,13 @@ class GraphColoringTests(unittest.TestCase):
         k, matrix = read_graph(SAMPLES / "cycle5_k3.txt")
         self.assert_valid_optimal(matrix, k, 1)
 
+    def test_even_cycle_with_two_and_three_colors(self):
+        edges = [(v, v + 1) for v in range(1, 6)] + [(6, 1)]
+        matrix = adjacency_matrix(6, edges)
+        for k in (2, 3):
+            with self.subTest(k=k):
+                self.assert_valid_optimal(matrix, k, independent_optimum(matrix, k))
+
     def test_complete_graph(self):
         k, matrix = read_graph(SAMPLES / "complete4_k4.txt")
         self.assert_valid_optimal(matrix, k, 0)
